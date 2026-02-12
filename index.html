@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedra, Papel e Tesoura com IA 🎮</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .setup-section {
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
+
+        .setup-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .hint {
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .game-section {
+            display: none;
+        }
+
+        .game-section.active {
+            display: block;
+        }
+
+        .webcam-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        #webcam {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 100%;
+        }
+
+        .prediction-info {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
+
+        .prediction-info h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .prediction-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .prediction-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prediction-label {
+            min-width: 80px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .prediction-bar {
+            flex: 1;
+            height: 25px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .prediction-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .battle-arena {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 30px;
+            align-items: center;
+            margin: 30px 0;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 15px;
+        }
+
+        .player-choice, .computer-choice {
+            text-align: center;
+        }
+
+        .choice-display {
+            font-size: 5em;
+            margin: 20px 0;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vs {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .result-message {
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 20px 0;
+            min-height: 50px;
+            color: #667eea;
+        }
+
+        .result-message.win {
+            color: #10b981;
+        }
+
+        .result-message.lose {
+            color: #ef4444;
+        }
+
+        .result-message.tie {
+            color: #f59e0b;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-around;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .score-value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .play-button {
+            background: #10b981;
+            margin-top: 20px;
+        }
+
+        .play-button:hover {
+            background: #059669;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 1.2em;
+            padding: 20px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .shake {
+            animation: shake 0.5s;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            color: #856404;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✊✋✌️ Pedra, Papel e Tesoura com IA</h1>
+        <p class="subtitle">Treine seu modelo no Teachable Machine e jogue com gestos!</p>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>📋 Como usar:</h3>
+            <ol>
+                <li>Acesse <a href="https://teachablemachine.withgoogle.com/" target="_blank">Teachable Machine</a></li>
+                <li>Crie um projeto de "Image Project" → "Standard image model"</li>
+                <li>Crie 3 classes: "Pedra", "Papel" e "Tesoura"</li>
+                <li>Adicione imagens de cada gesto usando sua webcam (pelo menos 30 de cada)</li>
+                <li>Treine o modelo</li>
+                <li>Clique em "Export Model" → "Upload my model" → Copie a URL do modelo</li>
+                <li>Cole a URL abaixo e comece a jogar!</li>
+            </ol>
+        </div>
+
+        <!-- Setup Section -->
+        <div class="setup-section" id="setupSection">
+            <h2>⚙️ Configuração do Modelo</h2>
+            
+            <div class="input-group">
+                <label for="modelURL">URL do Modelo do Teachable Machine:</label>
+                <input 
+                    type="text" 
+                    id="modelURL" 
+                    placeholder="https://teachablemachine.withgoogle.com/models/..."
+                    value=""
+                />
+                <p class="hint">Cole a URL que você copiou após fazer upload do modelo</p>
+            </div>
+
+            <button id="loadModelBtn">🚀 Carregar Modelo e Iniciar Webcam</button>
+            
+            <div id="loadingMessage" class="loading" style="display: none;">
+                Carregando modelo e iniciando webcam... 📹
+            </div>
+            
+            <div id="errorMessage" class="error" style="display: none;"></div>
+        </div>
+
+        <!-- Game Section -->
+        <div class="game-section" id="gameSection">
+            <div class="scoreboard">
+                <div class="score-item">
+                    <div class="score-label">Você</div>
+                    <div class="score-value" id="playerScore">0</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-label">Empates</div>
+                    <div class="score-value" id="tieScore">0</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-label">Computador</div>
+                    <div class="score-value" id="computerScore">0</div>
+                </div>
+            </div>
+
+            <div class="webcam-container">
+                <canvas id="webcam"></canvas>
+            </div>
+
+            <div class="prediction-info">
+                <h3>🎯 Detecção em Tempo Real</h3>
+                <div class="prediction-bars" id="predictionBars"></div>
+            </div>
+
+            <div class="battle-arena">
+                <div class="player-choice">
+                    <h3>Você</h3>
+                    <div class="choice-display" id="playerChoice">?</div>
+                </div>
+                <div class="vs">VS</div>
+                <div class="computer-choice">
+                    <h3>Computador</h3>
+                    <div class="choice-display" id="computerChoice">?</div>
+                </div>
+            </div>
+
+            <div class="result-message" id="resultMessage"></div>
+
+            <button class="play-button" id="playButton">🎮 JOGAR!</button>
+        </div>
+    </div>
+
+    <script>
+        let model, webcam, maxPredictions;
+        let isPlaying = false;
+        let scores = { player: 0, computer: 0, tie: 0 };
+        
+        const choices = ['Pedra', 'Papel', 'Tesoura'];
+        const emojis = { 'Pedra': '✊', 'Papel': '✋', 'Tesoura': '✌️' };
+        
+        let currentPredictions = [];
+
+        // Load model and start webcam
+        document.getElementById('loadModelBtn').addEventListener('click', async () => {
+            const modelURL = document.getElementById('modelURL').value.trim();
+            
+            if (!modelURL) {
+                showError('Por favor, insira a URL do modelo!');
+                return;
+            }
+
+            // Ensure URL ends with /
+            const baseURL = modelURL.endsWith('/') ? modelURL : modelURL + '/';
+            
+            try {
+                showLoading(true);
+                hideError();
+                
+                // Load the model
+                const modelPath = baseURL + 'model.json';
+                const metadataPath = baseURL + 'metadata.json';
+                
+                model = await tmImage.load(modelPath, metadataPath);
+                maxPredictions = model.getTotalClasses();
+                
+                // Setup webcam
+                const flip = true;
+                webcam = new tmImage.Webcam(400, 400, flip);
+                await webcam.setup();
+                await webcam.play();
+                
+                // Append webcam canvas
+                const canvas = document.getElementById('webcam');
+                canvas.width = 400;
+                canvas.height = 400;
+                
+                // Start prediction loop
+                window.requestAnimationFrame(loop);
+                
+                // Show game section
+                document.getElementById('setupSection').style.display = 'none';
+                document.getElementById('gameSection').classList.add('active');
+                
+                showLoading(false);
+                
+            } catch (error) {
+                console.error('Erro ao carregar modelo:', error);
+                showError('Erro ao carregar o modelo. Verifique se a URL está correta e se o modelo foi publicado corretamente. Erro: ' + error.message);
+                showLoading(false);
+            }
+        });
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const canvas = document.getElementById('webcam');
+            const ctx = canvas.getContext('2d');
+            
+            // Draw webcam frame
+            ctx.drawImage(webcam.canvas, 0, 0);
+            
+            // Get predictions
+            const prediction = await model.predict(webcam.canvas);
+            currentPredictions = prediction;
+            
+            // Update prediction bars
+            updatePredictionBars(prediction);
+        }
+
+        function updatePredictionBars(predictions) {
+            const container = document.getElementById('predictionBars');
+            container.innerHTML = '';
+            
+            predictions.forEach(pred => {
+                const percentage = (pred.probability * 100).toFixed(1);
+                
+                const item = document.createElement('div');
+                item.className = 'prediction-item';
+                
+                item.innerHTML = `
+                    <div class="prediction-label">${pred.className}</div>
+                    <div class="prediction-bar">
+                        <div class="prediction-fill" style="width: ${percentage}%">
+                            ${percentage}%
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+
+        // Play game
+        document.getElementById('playButton').addEventListener('click', playGame);
+
+        function playGame() {
+            if (isPlaying) return;
+            isPlaying = true;
+            
+            // Get player's choice from highest prediction
+            const playerChoice = currentPredictions.reduce((max, pred) => 
+                pred.probability > max.probability ? pred : max
+            ).className;
+            
+            // Get computer's random choice
+            const computerChoice = choices[Math.floor(Math.random() * choices.length)];
+            
+            // Animate choices
+            animateChoices(playerChoice, computerChoice);
+            
+            setTimeout(() => {
+                // Determine winner
+                const result = determineWinner(playerChoice, computerChoice);
+                
+                // Update scores
+                if (result === 'win') scores.player++;
+                else if (result === 'lose') scores.computer++;
+                else scores.tie++;
+                
+                updateScores();
+                showResult(result, playerChoice, computerChoice);
+                
+                isPlaying = false;
+            }, 1000);
+        }
+
+        function animateChoices(player, computer) {
+            const playerDiv = document.getElementById('playerChoice');
+            const computerDiv = document.getElementById('computerChoice');
+            
+            let count = 0;
+            const interval = setInterval(() => {
+                playerDiv.textContent = emojis[choices[count % 3]];
+                computerDiv.textContent = emojis[choices[count % 3]];
+                count++;
+                
+                if (count === 6) {
+                    clearInterval(interval);
+                    playerDiv.textContent = emojis[player];
+                    computerDiv.textContent = emojis[computer];
+                }
+            }, 150);
+        }
+
+        function determineWinner(player, computer) {
+            if (player === computer) return 'tie';
+            
+            if (
+                (player === 'Pedra' && computer === 'Tesoura') ||
+                (player === 'Papel' && computer === 'Pedra') ||
+                (player === 'Tesoura' && computer === 'Papel')
+            ) {
+                return 'win';
+            }
+            
+            return 'lose';
+        }
+
+        function showResult(result, player, computer) {
+            const resultDiv = document.getElementById('resultMessage');
+            resultDiv.className = 'result-message ' + result;
+            
+            if (result === 'win') {
+                resultDiv.textContent = '🎉 Você ganhou!';
+            } else if (result === 'lose') {
+                resultDiv.textContent = '😢 Você perdeu!';
+            } else {
+                resultDiv.textContent = '🤝 Empate!';
+            }
+            
+            resultDiv.classList.add('shake');
+            setTimeout(() => resultDiv.classList.remove('shake'), 500);
+        }
+
+        function updateScores() {
+            document.getElementById('playerScore').textContent = scores.player;
+            document.getElementById('computerScore').textContent = scores.computer;
+            document.getElementById('tieScore').textContent = scores.tie;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
